@@ -10,7 +10,7 @@ BASE_URL = "https://api.assemblyai.com/v2"
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok', 'key': ASSEMBLYAI_API_KEY[:5] if ASSEMBLYAI_API_KEY else 'missing'})
+    return jsonify({'status': 'ok'})
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -42,7 +42,7 @@ def transcribe():
     )
     
     if transcript_response.status_code != 200:
-        return jsonify({'error': 'Transcript request failed: ' + transcript_response.text}), 500
+        return jsonify({'error': 'Transcript failed: ' + transcript_response.text}), 500
     
     transcript_json = transcript_response.json()
     if "id" not in transcript_json:
@@ -56,9 +56,10 @@ def transcribe():
             headers={"authorization": ASSEMBLYAI_API_KEY}
         ).json()
         if result["status"] == "completed":
-            return jsonify({"text": result["text"]})
+            text = result.get("text") or "Tsy hita texte (audio foana?)"
+            return jsonify({"text": text})
         elif result["status"] == "error":
-            return jsonify({"error": result["error"]}), 500
+            return jsonify({"error": result.get("error", "Unknown error")}), 500
         time.sleep(2)
 
 application = app

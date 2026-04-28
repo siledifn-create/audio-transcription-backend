@@ -25,6 +25,7 @@ def transcribe():
     
     upload_headers = {"authorization": ASSEMBLYAI_API_KEY}
     
+    # 1. Upload audio to AssemblyAI
     upload_response = requests.post(
         BASE_URL + "/upload",
         headers=upload_headers,
@@ -40,12 +41,14 @@ def transcribe():
     
     audio_url = upload_json["upload_url"]
     
+    # 2. Start transcription
+    # Nesorina ilay 'speech_model' taloha fa nosoloina 'speech_models' vaovao
     transcript_response = requests.post(
         BASE_URL + "/transcript",
         json={
             "audio_url": audio_url,
             "language_detection": True,
-            "speech_model": "universal-2"
+            "speech_models": ["universal-2"] 
         },
         headers={"authorization": ASSEMBLYAI_API_KEY, "content-type": "application/json"}
     )
@@ -59,16 +62,19 @@ def transcribe():
     
     transcript_id = transcript_json["id"]
     
+    # 3. Polling for results
     while True:
         result = requests.get(
             BASE_URL + "/transcript/" + transcript_id,
             headers={"authorization": ASSEMBLYAI_API_KEY}
         ).json()
+        
         if result["status"] == "completed":
-            text = result.get("text") or "Tsy hita texte"
+            text = result.get("text") or "Tsy hita ny soratra (Empty transcript)"
             return jsonify({"text": text})
         elif result["status"] == "error":
-            return jsonify({"error": result.get("error", "Unknown error")}), 500
+            return jsonify({"error": "Transcription error: " + result.get("error", "Unknown error")}), 500
+            
         time.sleep(2)
 
 application = app

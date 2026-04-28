@@ -10,13 +10,13 @@ BASE_URL = "https://api.assemblyai.com/v2"
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok'})
+    return jsonify({'status': 'ok', 'key': ASSEMBLYAI_API_KEY[:5] if ASSEMBLYAI_API_KEY else 'missing'})
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file'}), 400
-
+    
     audio_file = request.files['audio']
     upload_headers = {"authorization": ASSEMBLYAI_API_KEY}
     
@@ -25,15 +25,31 @@ def transcribe():
         headers=upload_headers,
         data=audio_file.read()
     )
-    audio_url = upload_response.json()["upload_url"]
-
+    
+    if upload_response.status_code != 200:
+        return jsonify({'error': 'Upload failed: ' + upload_response.text}), 500
+    
+    upload_json = upload_response.json()
+    if "upload_url" not in upload_json:
+        return jsonify({'error': 'No upload_url: ' + str(upload_json)}), 500
+    
+    audio_url = upload_json["upload_url"]
+    
     transcript_response = requests.post(
         BASE_URL + "/transcript",
         json={"audio_url": audio_url, "language_detection": True},
         headers={"authorization": ASSEMBLYAI_API_KEY, "content-type": "application/json"}
     )
-    transcript_id = transcript_response.json()["id"]
-
+    
+    if transcript_response.status_code != 200:
+        return jsonify({'error': 'Transcript request failed: ' + transcript_response.text}), 500
+    
+    transcript_json = transcript_response.json()
+    if "id" not in transcript_json:
+        return jsonify({'error': 'No id: ' + str(transcript_json)}), 500
+    
+    transcript_id = transcript_json["id"]
+    
     while True:
         result = requests.get(
             BASE_URL + "/transcript/" + transcript_id,
